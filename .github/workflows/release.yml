@@ -63,7 +63,9 @@ jobs:
 
       - name: Build Release
         working-directory: source
-        run: make release
+        run: |
+          mkdir -p build
+          make release
 
       - name: Package and sign
         working-directory: source
