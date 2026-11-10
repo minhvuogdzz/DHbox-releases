@@ -2,7 +2,8 @@ name: Build and publish
 
 # Creating a release here (marked pre-release) builds DHbox from the private
 # source repo at the same tag, signs the archive for the in-app updater,
-# attaches both files and then promotes the release to "latest".
+# also makes a DMG (drag to Applications) for first-time installs, attaches
+# the files and then promotes the release to "latest".
 on:
   release:
     types: [published]
@@ -46,6 +47,11 @@ jobs:
           ssh-key: ${{ secrets.SOURCE_DEPLOY_KEY }}
           path: source
 
+      - name: Check out the build helpers
+        uses: actions/checkout@v4
+        with:
+          path: tools
+
       - name: Install tools
         run: command -v xcodegen >/dev/null || brew install xcodegen
 
@@ -88,8 +94,24 @@ jobs:
           key=$(sed -n 's/.*publicKey = "\(.*\)"/\1/p' App/Sources/Support/UpdateKey.swift)
           swift scripts/release/verify_update.swift "$key" "$GITHUB_WORKSPACE/out/DHbox-$VERSION.zip" "$GITHUB_WORKSPACE/out/DHbox-$VERSION.zip.sig"
 
+      - name: Make the disk image
+        run: |
+          python3 -m venv "$RUNNER_TEMP/dmg-venv"
+          "$RUNNER_TEMP/dmg-venv/bin/pip" install --quiet dmgbuild
+          app="$GITHUB_WORKSPACE/source/build/DerivedData/Build/Products/Release/DHbox.app"
+          DHBOX_APP="$app" "$RUNNER_TEMP/dmg-venv/bin/dmgbuild" -s tools/scripts/dmg_settings.py "DHbox $VERSION" "out/DHbox-$VERSION.dmg"
+          # The app inside the image must still be validly signed and be this version.
+          mkdir -p "$RUNNER_TEMP/dmg-mount"
+          hdiutil attach "out/DHbox-$VERSION.dmg" -nobrowse -readonly -mountpoint "$RUNNER_TEMP/dmg-mount" >/dev/null
+          codesign --verify --deep --strict "$RUNNER_TEMP/dmg-mount/DHbox.app"
+          test -L "$RUNNER_TEMP/dmg-mount/Applications"
+          inside=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$RUNNER_TEMP/dmg-mount/DHbox.app/Contents/Info.plist")
+          hdiutil detach "$RUNNER_TEMP/dmg-mount" -quiet
+          [ "$inside" = "$VERSION" ] || { echo "DMG holds $inside, expected $VERSION"; exit 1; }
+          shasum -a 256 "out/DHbox-$VERSION.dmg" | tee "out/DHbox-$VERSION.dmg.sha256"
+
       - name: Publish
         working-directory: out
         run: |
-          gh release upload "$TAG" "DHbox-$VERSION.zip" "DHbox-$VERSION.zip.sig" "DHbox-$VERSION.zip.sha256" --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload "$TAG" "DHbox-$VERSION.dmg" "DHbox-$VERSION.dmg.sha256" "DHbox-$VERSION.zip" "DHbox-$VERSION.zip.sig" "DHbox-$VERSION.zip.sha256" --clobber --repo "$GITHUB_REPOSITORY"
           gh release edit "$TAG" --prerelease=false --latest --repo "$GITHUB_REPOSITORY"

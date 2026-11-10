@@ -4,11 +4,11 @@ Bản phát hành của **DHbox**, app macOS trên thanh menu của Devhouse Sof
 
 ## Cài đặt
 
-1. Tải `DHbox-<phiên bản>.zip` ở mục [Releases](../../releases/latest).
-2. Giải nén và kéo `DHbox.app` vào thư mục Applications.
+1. Tải `DHbox-<phiên bản>.dmg` ở mục [Releases](../../releases/latest) và mở nó.
+2. Kéo `DHbox.app` vào lối tắt Applications trong cửa sổ vừa hiện.
 3. Bản được ký thường (chưa notarize): lần đầu mở, bấm chuột phải vào app, chọn Mở, rồi xác nhận.
 
-Sau đó DHbox tự kiểm tra bản mới mỗi ngày. Trong Cài đặt có thể bật tự động tải và cài; mọi bản tải về đều được kiểm tra chữ ký Ed25519 (`DHbox-<phiên bản>.zip.sig`) trước khi cài.
+Sau đó DHbox tự kiểm tra bản mới mỗi ngày. Trong Cài đặt có thể bật tự động tải và cài; mọi bản tải về đều được kiểm tra chữ ký Ed25519 (`DHbox-<phiên bản>.zip.sig`; bộ cập nhật trong app dùng tệp `.zip`, còn `.dmg` dành cho cài lần đầu) trước khi cài.
 
 ## Phát hành bản mới (dành cho người bảo trì)
 
