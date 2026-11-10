@@ -86,7 +86,7 @@ jobs:
           ditto -c -k --keepParent "$app" "$GITHUB_WORKSPACE/out/DHbox-$VERSION.zip"
           swift scripts/release/sign_update.swift "$GITHUB_WORKSPACE/out/DHbox-$VERSION.zip" > "$GITHUB_WORKSPACE/out/DHbox-$VERSION.zip.sig"
           test -s "$GITHUB_WORKSPACE/out/DHbox-$VERSION.zip.sig"
-          shasum -a 256 "$GITHUB_WORKSPACE/out/DHbox-$VERSION.zip" | tee "$GITHUB_WORKSPACE/out/DHbox-$VERSION.zip.sha256"
+          (cd "$GITHUB_WORKSPACE/out" && shasum -a 256 "DHbox-$VERSION.zip" | tee "DHbox-$VERSION.zip.sha256")
 
       - name: Verify the signature with the key built into the app
         working-directory: source
@@ -108,7 +108,7 @@ jobs:
           inside=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$RUNNER_TEMP/dmg-mount/DHbox.app/Contents/Info.plist")
           hdiutil detach "$RUNNER_TEMP/dmg-mount" -quiet
           [ "$inside" = "$VERSION" ] || { echo "DMG holds $inside, expected $VERSION"; exit 1; }
-          shasum -a 256 "out/DHbox-$VERSION.dmg" | tee "out/DHbox-$VERSION.dmg.sha256"
+          (cd out && shasum -a 256 "DHbox-$VERSION.dmg" | tee "DHbox-$VERSION.dmg.sha256")
 
       - name: Publish
         working-directory: out
