@@ -67,11 +67,60 @@ jobs:
         # RedactorTests draw images on the GPU, which GitHub's virtual Macs lack; they run on developer machines.
         run: swift test --skip RedactorTests
 
+      - name: Install the signing certificate
+        id: cert
+        env:
+          SIGNING_P12: ${{ secrets.DHBOX_SIGNING_P12 }}
+          SIGNING_PASSWORD: ${{ secrets.DHBOX_SIGNING_PASSWORD }}
+        run: |
+          # Releases are signed with Devhouse Software's own certificate (no
+          # Apple account): macOS then sees every version as the same app, so
+          # privacy permissions survive updates. Without the secrets the build
+          # is signed ad-hoc as before.
+          if [ -z "$SIGNING_P12" ]; then
+            echo "No signing certificate in the secrets: ad-hoc signature"
+            echo "identity=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/dhbox-signing.keychain-db"
+          pass=$(uuidgen)
+          echo "$SIGNING_P12" | base64 --decode > "$RUNNER_TEMP/dhbox-signing.p12"
+          security create-keychain -p "$pass" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$pass" "$keychain"
+          security import "$RUNNER_TEMP/dhbox-signing.p12" -k "$keychain" -P "$SIGNING_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/dhbox-signing.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pass" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity=$(security find-identity -p codesigning "$keychain" | grep -E '[0-9A-F]{40}' | head -1 | awk '{print $2}')
+          [ -n "$identity" ] || { echo "The certificate has no signing identity"; exit 1; }
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+          echo "keychain=$keychain" >> "$GITHUB_OUTPUT"
+          echo "Signing with identity $identity"
+
       - name: Build Release
         working-directory: source
+        env:
+          IDENTITY: ${{ steps.cert.outputs.identity }}
         run: |
           mkdir -p build
-          make release
+          make release SELF_SIGN="$IDENTITY"
+
+      - name: Check who signed it
+        if: steps.cert.outputs.identity != ''
+        working-directory: source
+        env:
+          IDENTITY: ${{ steps.cert.outputs.identity }}
+        run: |
+          # The requirement macOS stores with each permission: the same text in
+          # every release is what keeps the permissions.
+          app="build/DerivedData/Build/Products/Release/DHbox.app"
+          want=$(echo "$IDENTITY" | tr 'A-F' 'a-f')
+          for part in "$app" "$app/Contents/MacOS/DHboxAgent" "$app"/Contents/PlugIns/*.appex; do
+            req=$(codesign -dr - "$part" 2>&1 | sed -n 's/^designated => //p')
+            echo "$(basename "$part"): $req"
+            echo "$req" | grep -q "certificate root = H\"$want\"" || { echo "Not signed by the DHbox certificate"; exit 1; }
+          done
 
       - name: Package and sign
         working-directory: source
@@ -109,6 +158,12 @@ jobs:
           hdiutil detach "$RUNNER_TEMP/dmg-mount" -quiet
           [ "$inside" = "$VERSION" ] || { echo "DMG holds $inside, expected $VERSION"; exit 1; }
           (cd out && shasum -a 256 "DHbox-$VERSION.dmg" | tee "DHbox-$VERSION.dmg.sha256")
+
+      - name: Remove the signing certificate
+        if: always() && steps.cert.outputs.keychain != ''
+        env:
+          KEYCHAIN: ${{ steps.cert.outputs.keychain }}
+        run: security delete-keychain "$KEYCHAIN" || true
 
       - name: Publish
         working-directory: out
