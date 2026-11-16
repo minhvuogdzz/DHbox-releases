@@ -4,9 +4,17 @@ Bản phát hành của **DHbox**, app macOS trên thanh menu của Devhouse Sof
 
 ## Cài đặt
 
+Cách nhanh nhất, không bị macOS chặn lần mở đầu: mở Terminal, dán rồi bấm Return.
+
+```bash
+curl -fsSL https://github.com/minhvuogdzz/DHbox-releases/releases/latest/download/install.sh | sh
+```
+
+Hoặc cài bằng DMG:
+
 1. Tải `DHbox-<phiên bản>.dmg` ở mục [Releases](../../releases/latest) và mở nó.
 2. Kéo `DHbox.app` vào lối tắt Applications trong cửa sổ vừa hiện.
-3. Bản được ký thường (chưa notarize): lần đầu mở, bấm chuột phải vào app, chọn Mở, rồi xác nhận.
+3. Bản được ký riêng, chưa notarize, nên macOS có thể chặn lần mở đầu. Vào Cài đặt hệ thống, Quyền riêng tư và Bảo mật, kéo xuống mục Bảo mật, bấm "Vẫn mở" cạnh DHbox. (Từ macOS 15, bấm chuột phải rồi chọn Mở không còn qua được.) Hoặc chạy `xattr -cr /Applications/DHbox.app` trong Terminal.
 
 Sau đó DHbox tự kiểm tra bản mới mỗi ngày. Trong Cài đặt có thể bật tự động tải và cài; mọi bản tải về đều được kiểm tra chữ ký Ed25519 (`DHbox-<phiên bản>.zip.sig`; bộ cập nhật trong app dùng tệp `.zip`, còn `.dmg` dành cho cài lần đầu) trước khi cài.
 
