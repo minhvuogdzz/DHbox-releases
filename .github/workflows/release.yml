@@ -169,4 +169,9 @@ jobs:
         working-directory: out
         run: |
           gh release upload "$TAG" "DHbox-$VERSION.dmg" "DHbox-$VERSION.dmg.sha256" "DHbox-$VERSION.zip" "DHbox-$VERSION.zip.sig" "DHbox-$VERSION.zip.sha256" --clobber --repo "$GITHUB_REPOSITORY"
+          # The one-line installer travels with every release, so
+          # releases/latest/download/install.sh is always the newest copy.
+          if [ -f "$GITHUB_WORKSPACE/source/scripts/install.sh" ]; then
+            gh release upload "$TAG" "$GITHUB_WORKSPACE/source/scripts/install.sh" --clobber --repo "$GITHUB_REPOSITORY"
+          fi
           gh release edit "$TAG" --prerelease=false --latest --repo "$GITHUB_REPOSITORY"
